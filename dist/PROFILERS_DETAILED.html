@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Skills - 性能分析器模块详解</title>
+    <style>
+        :root {
+            --primary-color: #3DDC84;
+            --secondary-color: #073042;
+            --accent-color: #4285F4;
+            --warning-color: #FF9800;
+            --error-color: #F44336;
+            --success-color: #4CAF50;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --code-background: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--secondary-color), #1a237e);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .meta-info span {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        nav {
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        nav h2 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        nav ul {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        nav a {
+            color: var(--accent-color);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            transition: all 0.3s;
+            display: block;
+            font-size: 0.95em;
+        }
+
+        nav a:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        section {
+            background: var(--card-background);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        h3 {
+            color: var(--accent-color);
+            margin: 25px 0 15px 0;
+        }
+
+        h4 {
+            color: var(--secondary-color);
+            margin: 20px 0 10px 0;
+            font-size: 1.1em;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        tr:hover {
+            background: #f0f0f0;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', 'Cascadia Code', monospace;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+
+        pre {
+            background: var(--code-background);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .keyword { color: #569CD6; }
+        .string { color: #CE9178; }
+        .comment { color: #6A9955; }
+        .function { color: #DCDCAA; }
+
+        .tip-box {
+            background: #e8f5e9;
+            border-left: 4px solid var(--success-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .tip-box::before {
+            content: "💡 ";
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .warning-box::before {
+            content: "⚠️ ";
+        }
+
+        .error-box {
+            background: #ffebee;
+            border-left: 4px solid var(--error-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .error-box::before {
+            content: "❌ ";
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid var(--accent-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info-box::before {
+            content: "ℹ️ ";
+        }
+
+        .skill-card {
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            margin: 20px 0;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .skill-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .skill-card h4 {
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+
+        .tag-group {
+            margin: 10px 0;
+        }
+
+        .architecture-box {
+            background: var(--secondary-color);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: monospace;
+            white-space: pre;
+            line-height: 1.4;
+            margin: 20px 0;
+        }
+
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 15px;
+            padding-left: 40px;
+            position: relative;
+        }
+
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 28px;
+            height: 28px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .checklist {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .checklist li {
+            padding-left: 30px;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .checklist li::before {
+            content: "☐";
+            position: absolute;
+            left: 0;
+            font-size: 1.2em;
+            color: var(--accent-color);
+        }
+
+        .checklist li.checked::before {
+            content: "☑";
+            color: var(--success-color);
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .comparison-item {
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .comparison-item.correct {
+            background: #e8f5e9;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .comparison-item.incorrect {
+            background: #ffebee;
+            border-left: 4px solid var(--error-color);
+        }
+
+        .comparison-item::before {
+            content: attr(data-label);
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.6em;
+            }
+            
+            section {
+                padding: 20px;
+            }
+            
+            pre {
+                padding: 15px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔍 Android Skills - 性能分析器模块详解</h1>
+        <div class="meta-info">
+            <span>📁 模块路径: profilers/</span>
+            <span>🛠️ 技能: perfetto-sql, perfetto-trace-analysis</span>
+            <span>📅 更新: 2026-06-01</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <nav>
+            <h2>📑 目录</h2>
+            <ul>
+                <li><a href="#overview">1. 模块概述</a></li>
+                <li><a href="#perfetto-sql">2. Perfetto SQL 技能</a></li>
+                <li><a href="#trace-analysis">3. Trace Analysis 技能</a></li>
+                <li><a href="#data-model">4. 核心概念与数据模型</a></li>
+                <li><a href="#query-patterns">5. 常用查询模式</a></li>
+                <li><a href="#domain-guide">6. 性能分析领域指南</a></li>
+                <li><a href="#examples">7. 实战案例</a></li>
+                <li><a href="#best-practices">8. 最佳实践与约束</a></li>
+            </ul>
+        </nav>
+
+        <section id="overview">
+            <h2>1. 模块概述</h2>
+            
+            <p>性能分析器模块是 Android Skills 中用于深度性能分析的核心组件，基于 <strong>Perfetto</strong> 开源项目构建。该模块提供了两个互补的技能：</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>技能名称</th>
+                        <th>主要职责</th>
+                        <th>使用场景</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>perfetto-sql</code></td>
+                        <td>SQL查询生成与执行</td>
+                        <td>将自然语言转换为有效的Perfetto SQL查询</td>
+                    </tr>
+                    <tr>
+                        <td><code>perfetto-trace-analysis</code></td>
+                        <td>跟踪文件分析</td>
+                        <td>查找延迟、内存、卡顿等问题的根本原因</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>架构图</h3>
+            <div class="architecture-box">┌─────────────────────────────────────────────────────────────────┐
+│                    性能分析器模块架构                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────┐         ┌─────────────────┐               │
+│  │  用户请求        │         │  跟踪文件        │               │
+│  │  (自然语言)      │         │  (.perfetto-trace)│              │
+│  └────────┬────────┘         └────────┬────────┘               │
+│           │                           │                         │
+│           ▼                           │                         │
+│  ┌─────────────────┐                  │                         │
+│  │  perfetto-sql   │                  │                         │
+│  │  ─────────────  │                  │                         │
+│  │  • 意图解析      │                  │                         │
+│  │  • 模式发现      │                  │                         │
+│  │  • SQL生成      │                  │                         │
+│  │  • 查询验证      │                  │                         │
+│  └────────┬────────┘                  │                         │
+│           │                           │                         │
+│           ▼                           ▼                         │
+│  ┌─────────────────────────────────────────────┐               │
+│  │              trace_processor                 │               │
+│  │  ─────────────────────────────────────────  │               │
+│  │  • 查询执行引擎                              │               │
+│  │  • 标准库模块                                │               │
+│  │  • 数据加载                                  │               │
+│  └────────────────────┬────────────────────────┘               │
+│                       │                                         │
+│                       ▼                                         │
+│  ┌─────────────────┐                                           │
+│  │  perfetto-trace │                                           │
+│  │  -analysis      │                                           │
+│  │  ─────────────  │                                           │
+│  │  • 假设制定      │                                           │
+│  │  • 数据收集      │                                           │
+│  │  • 根因分析      │                                           │
+│  │  • 报告生成      │                                           │
+│  └─────────────────┘                                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘</div>
+        </section>
+
+        <section id="perfetto-sql">
+            <h2>2. Perfetto SQL 技能</h2>
+
+            <div class="skill-card">
+                <h4>📊 技能元数据</h4>
+                <pre><code>name: perfetto-sql
+description: 将自然语言数据意图转换为语法有效的Perfetto SQL查询并执行
+keywords:
+  - Perfetto SQL
+  - Query Guidelines
+  - Performance Profiling
+  - SPAN_JOIN
+  - Idempotency</code></pre>
+            </div>
+
+            <h3>执行协议</h3>
+
+            <h4>Step 0: 工具设置</h4>
+            <pre><code># 检查 trace_processor 是否存在
+ls trace_processor
+
+# 如果不存在，下载并设置
+curl -LO https://get.perfetto.dev/trace_processor
+chmod +x trace_processor
+
+# 添加到 .gitignore
+echo "trace_processor" >> .gitignore</code></pre>
+
+            <div class="warning-box">
+                <strong>重要</strong>: 不要使用 <code>find</code> 等搜索工具在整个工作区搜索 <code>trace_processor</code>，这会导致超时。
+            </div>
+
+            <h4>Step 1: 解析与模式研究</h4>
+            <ol class="step-list">
+                <li><strong>识别核心问题</strong>: 确定需要查询的数据点和过滤条件</li>
+                <li><strong>模式搜索</strong>: 在 <code>perfetto-stdlib.md</code> 中查找相关表/视图</li>
+                <li><strong>提取模式</strong>: 获取表结构、列定义和模块导入语句</li>
+            </ol>
+
+            <h4>Step 2: 验证清单</h4>
+            <ul class="checklist">
+                <li>SQLite语法正确</li>
+                <li>幂等性保证（使用 <code>CREATE OR REPLACE</code>）</li>
+                <li>表存在于文档中</li>
+                <li>列名与模式匹配</li>
+                <li>所有列名使用别名前缀</li>
+                <li>包含必要的 <code>INCLUDE PERFETTO MODULE</code> 语句</li>
+                <li>使用 <code>GLOB</code> 而非 <code>LIKE</code></li>
+                <li>SPAN_JOIN 表正确分区</li>
+            </ul>
+
+            <h4>Step 3: 执行查询</h4>
+            <pre><code># 执行查询
+./trace_processor --query-string "QUERY" trace_file.perfetto-trace
+
+# 或使用SQL文件
+./trace_processor query_file.sql trace_file.perfetto-trace</code></pre>
+        </section>
+
+        <section id="trace-analysis">
+            <h2>3. Perfetto Trace Analysis 技能</h2>
+
+            <div class="skill-card">
+                <h4>🔬 技能元数据</h4>
+                <pre><code>name: perfetto-trace-analysis
+description: 分析Perfetto跟踪以查找延迟、内存或卡顿问题的根本原因
+keywords:
+  - trace analysis
+  - Android performance
+  - debugging
+  - profiling
+  - jank
+  - bottleneck</code></pre>
+            </div>
+
+            <h3>调查协议</h3>
+
+            <h4>设置阶段</h4>
+            <ol class="step-list">
+                <li>
+                    <strong>初始化草稿文件</strong>: 在跟踪文件同目录创建分析记录
+                    <pre><code>[trace_filename]_analysis.md</code></pre>
+                </li>
+                <li>
+                    <strong>审查领域提示</strong>: 阅读各领域的分析技术
+                    <div class="tag-group">
+                        <span class="tag">hints_cpu.md</span>
+                        <span class="tag">hints_graphics.md</span>
+                        <span class="tag">hints_io.md</span>
+                        <span class="tag">hints_ipc.md</span>
+                        <span class="tag">hints_memory.md</span>
+                        <span class="tag">hints_power.md</span>
+                    </div>
+                </li>
+                <li>
+                    <strong>目标解析</strong>: 如果请求宽泛，先识别活跃应用
+                    <pre><code>INCLUDE PERFETTO MODULE android.startup.startups;
+SELECT package FROM android_startups;</code></pre>
+                </li>
+            </ol>
+
+            <h4>调查循环</h4>
+            <div class="architecture-box">┌─────────────────────────────────────────┐
+│           调查循环流程                    │
+├─────────────────────────────────────────┤
+│                                          │
+│  ┌─────────────┐                        │
+│  │ 1. 制定假设  │                        │
+│  └──────┬──────┘                        │
+│         ▼                               │
+│  ┌─────────────┐                        │
+│  │ 2. 收集数据  │                        │
+│  └──────┬──────┘                        │
+│         ▼                               │
+│  ┌─────────────┐                        │
+│  │ 3. 分析深入  │                        │
+│  └──────┬──────┘                        │
+│         ▼                               │
+│  ┌─────────────┐                        │
+│  │ 4. 穷尽调查  │ ──▶ 继续循环           │
+│  └──────┬──────┘                        │
+│         ▼                               │
+│  ┌─────────────┐                        │
+│  │ 5. 最终报告  │                        │
+│  └─────────────┘                        │
+│                                          │
+└─────────────────────────────────────────┘</div>
+        </section>
+
+        <section id="data-model">
+            <h2>4. 核心概念与数据模型</h2>
+
+            <h3>基表结构</h3>
+
+            <div class="skill-card">
+                <h4>📊 track（轨道）</h4>
+                <p>轨道是trace processor中的基本概念，表示相同类型和上下文事件的"时间线"。</p>
+                <table>
+                    <thead>
+                        <tr><th>列名</th><th>类型</th><th>描述</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>id</td><td>UINT</td><td>唯一标识符</td></tr>
+                        <tr><td>type</td><td>STRING</td><td>最具体的子表名称</td></tr>
+                        <tr><td>name</td><td>STRING</td><td>轨道名称</td></tr>
+                        <tr><td>parent_id</td><td>UINT</td><td>父轨道ID</td></tr>
+                        <tr><td>machine_id</td><td>UINT</td><td>机器标识符</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="skill-card">
+                <h4>🔄 thread_state（线程状态）</h4>
+                <p>包含系统中每个线程的调度状态。</p>
+                <table>
+                    <thead>
+                        <tr><th>列名</th><th>类型</th><th>描述</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>id</td><td>UINT</td><td>唯一标识符</td></tr>
+                        <tr><td>ts</td><td>LONG</td><td>开始时间戳（纳秒）</td></tr>
+                        <tr><td>dur</td><td>LONG</td><td>持续时间（纳秒）</td></tr>
+                        <tr><td>cpu</td><td>UINT</td><td>执行的CPU</td></tr>
+                        <tr><td>utid</td><td>UINT</td><td>线程唯一ID</td></tr>
+                        <tr><td>state</td><td>STRING</td><td>状态（Running/Runnable/Sleeping等）</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="skill-card">
+                <h4>⚙️ sched_slice（调度切片）</h4>
+                <p>包含内核线程调度信息的切片。</p>
+                <table>
+                    <thead>
+                        <tr><th>列名</th><th>类型</th><th>描述</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>id</td><td>UINT</td><td>唯一标识符</td></tr>
+                        <tr><td>ts</td><td>LONG</td><td>开始时间戳</td></tr>
+                        <tr><td>dur</td><td>LONG</td><td>持续时间</td></tr>
+                        <tr><td>cpu</td><td>UINT</td><td>CPU核心</td></tr>
+                        <tr><td>utid</td><td>UINT</td><td>线程唯一ID</td></tr>
+                        <tr><td>end_state</td><td>STRING</td><td>结束状态</td></tr>
+                        <tr><td>priority</td><td>INT</td><td>内核优先级</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>标识符约定</h3>
+            <table>
+                <thead>
+                    <tr><th>标识符</th><th>描述</th><th>使用场景</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>utid</code></td><td>唯一线程ID</td><td>连接线程相关表 ✅</td></tr>
+                    <tr><td><code>upid</code></td><td>唯一进程ID</td><td>连接进程相关表 ✅</td></tr>
+                    <tr><td><code>ucpu</code></td><td>唯一CPU ID</td><td>多机器场景</td></tr>
+                    <tr><td><code>tid</code></td><td>线程ID</td><td>可能被回收，不推荐 ❌</td></tr>
+                    <tr><td><code>pid</code></td><td>进程ID</td><td>可能被回收，不推荐 ❌</td></tr>
+                </tbody>
+            </table>
+
+            <div class="warning-box">
+                <strong>关键</strong>: 始终使用 <code>utid</code>/<code>upid</code> 而非 <code>tid</code>/<code>pid</code>，因为操作系统会回收TID和PID。
+            </div>
+        </section>
+
+        <section id="query-patterns">
+            <h2>5. 常用查询模式</h2>
+
+            <div class="skill-card">
+                <h4>1. 查找应用启动</h4>
+                <pre><code>INCLUDE PERFETTO MODULE android.startup.startups;
+
+SELECT 
+    package,
+    ts,
+    dur
+FROM android_startups
+ORDER BY ts DESC
+LIMIT 10;</code></pre>
+            </div>
+
+            <div class="skill-card">
+                <h4>2. 分析线程状态分布</h4>
+                <pre><code>SELECT 
+    thread_state.state,
+    COUNT(*) as count,
+    SUM(IIF(thread_state.dur = -1, 
+            trace_end() - thread_state.ts, 
+            thread_state.dur)) / 1000000.0 as total_dur_ms
+FROM thread_state
+WHERE thread_state.utid = (SELECT utid FROM thread WHERE name = 'main')
+GROUP BY thread_state.state
+ORDER BY total_dur_ms DESC;</code></pre>
+            </div>
+
+            <div class="skill-card">
+                <h4>3. 查找长时间运行的切片</h4>
+                <pre><code>SELECT 
+    slice.name,
+    slice.ts,
+    slice.dur / 1000000.0 as dur_ms,
+    thread.name as thread_name
+FROM slice
+JOIN thread_track ON slice.track_id = thread_track.id
+JOIN thread ON thread_track.utid = thread.utid
+WHERE slice.dur > 16000000  -- > 16ms
+ORDER BY slice.dur DESC
+LIMIT 20;</code></pre>
+            </div>
+
+            <div class="skill-card">
+                <h4>4. CPU频率分析</h4>
+                <pre><code>INCLUDE PERFETTO MODULE linux.cpu.frequency;
+
+SELECT 
+    cpu_frequency_counters.cpu,
+    cpu_frequency_counters.freq / 1000.0 as freq_mhz,
+    cpu_frequency_counters.ts
+FROM cpu_frequency_counters
+ORDER BY cpu_frequency_counters.ts;</code></pre>
+            </div>
+
+            <div class="skill-card">
+                <h4>5. 计算切片总时间</h4>
+                <pre><code>SELECT 
+    COUNT(*) as total_count,
+    SUM(IIF(slice.dur = -1, 
+            trace_end() - slice.ts, 
+            slice.dur)) / 1000000.0 as total_dur_ms
+FROM slice
+WHERE slice.name GLOB '*RenderThread*';</code></pre>
+            </div>
+
+            <div class="skill-card">
+                <h4>6. 分析调度延迟</h4>
+                <pre><code>SELECT 
+    thread.name,
+    AVG(runnable.dur) / 1000000.0 as avg_runnable_ms,
+    MAX(runnable.dur) / 1000000.0 as max_runnable_ms
+FROM thread_state as runnable
+JOIN thread ON runnable.utid = thread.utid
+WHERE runnable.state = 'R'  -- Runnable state
+GROUP BY thread.name
+ORDER BY avg_runnable_ms DESC
+LIMIT 10;</code></pre>
+            </div>
+        </section>
+
+        <section id="domain-guide">
+            <h2>6. 性能分析领域指南</h2>
+
+            <h3>CPU 分析</h3>
+            <table>
+                <thead>
+                    <tr><th>场景</th><th>分析方法</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>长切片调试</td><td>检查线程状态（running/sleeping/blocked）</td></tr>
+                    <tr><td>延迟问题</td><td>递归检查子切片</td></tr>
+                    <tr><td>唤醒延迟</td><td>检查CPU的irq轨道</td></tr>
+                    <tr><td>内核线程</td><td>检查实时优先级</td></tr>
+                    <tr><td>启动分析</td><td>聚合主线程不可中断睡眠原因</td></tr>
+                    <tr><td>频率问题</td><td>检查cpu_frequency计数器</td></tr>
+                    <tr><td>并发问题</td><td>搜索关键线程的阻塞状态</td></tr>
+                    <tr><td>调度竞争</td><td>计算调度延迟（Runnable状态时长）</td></tr>
+                </tbody>
+            </table>
+
+            <h3>内存分析</h3>
+            <table>
+                <thead>
+                    <tr><th>场景</th><th>分析方法</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>LMK杀进程</td><td>查找 <code>lmk_kill_occurred</code> 事件</td></tr>
+                    <tr><td>内存压力</td><td>检查 <code>swap_used</code> 值</td></tr>
+                    <tr><td>内存颠簸</td><td>检查 <code>kswapd</code> 线程CPU使用</td></tr>
+                    <tr><td>进程内存</td><td>检查 <code>anon_rss</code></td></tr>
+                    <tr><td>OOM分析</td><td>比较 median 和 p95 内存使用</td></tr>
+                    <tr><td>Bitmap分析</td><td>查询 <code>android.graphics.Bitmap</code> 实例</td></tr>
+                </tbody>
+            </table>
+
+            <h3>图形分析</h3>
+            <table>
+                <thead>
+                    <tr><th>场景</th><th>分析方法</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>UI卡顿</td><td>检查主线程长切片（>8ms）</td></tr>
+                    <tr><td>图形内存</td><td>追踪 <code>gpu_mem_total</code> 计数器</td></tr>
+                    <tr><td>大分配</td><td>查询 <code>android_graphics_allocs</code> 表</td></tr>
+                    <tr><td>帧延迟</td><td>比较 actual vs expected frame_timeline</td></tr>
+                    <tr><td>纹理上传</td><td>查找 <code>texture_upload</code> 切片</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="examples">
+            <h2>7. 实战案例</h2>
+
+            <div class="skill-card">
+                <h4>📱 案例1：应用启动慢分析</h4>
+                <p><strong>问题</strong>: 应用启动时间过长</p>
+                
+                <h4>Step 1: 识别启动</h4>
+                <pre><code>INCLUDE PERFETTO MODULE android.startup.startups;
+
+SELECT * FROM android_startups 
+WHERE package = 'com.example.app';</code></pre>
+
+                <h4>Step 2: 分析主线程状态</h4>
+                <pre><code>SELECT 
+    state,
+    SUM(dur) / 1000000.0 as dur_ms
+FROM thread_state
+WHERE utid = (SELECT utid FROM thread WHERE name = 'main')
+  AND ts BETWEEN {startup_ts} AND {startup_ts} + {startup_dur}
+GROUP BY state;</code></pre>
+
+                <h4>Step 3: 查找阻塞原因</h4>
+                <pre><code>SELECT 
+    slice.name,
+    SUM(slice.dur) / 1000000.0 as dur_ms
+FROM slice
+WHERE slice.name GLOB '*blocked*'
+  AND slice.ts BETWEEN {startup_ts} AND {startup_end}
+GROUP BY slice.name
+ORDER BY dur_ms DESC;</code></pre>
+            </div>
+
+            <div class="skill-card">
+                <h4>🎨 案例2：UI卡顿分析</h4>
+                <p><strong>问题</strong>: 滚动列表时出现卡顿</p>
+
+                <h4>Step 1: 识别卡顿帧</h4>
+                <pre><code>INCLUDE PERFETTO MODULE android.frames;
+
+SELECT 
+    frame.ts,
+    frame.dur / 1000000.0 as frame_dur_ms
+FROM actual_frame_timeline_frame as frame
+WHERE frame.dur > 16600000  -- > 16.6ms
+ORDER BY frame.dur DESC;</code></pre>
+
+                <h4>Step 2: 分析卡顿原因</h4>
+                <pre><code>SELECT 
+    slice.name,
+    slice.dur / 1000000.0 as dur_ms
+FROM slice
+JOIN thread_track ON slice.track_id = thread_track.id
+WHERE thread_track.utid = (SELECT utid FROM thread WHERE name = 'main')
+  AND slice.ts BETWEEN {jank_ts} AND {jank_ts} + {jank_dur}
+  AND slice.dur > 1000000
+ORDER BY slice.dur DESC;</code></pre>
+            </div>
+
+            <div class="skill-card">
+                <h4>💾 案例3：内存泄漏分析</h4>
+                <p><strong>问题</strong>: 应用内存持续增长</p>
+
+                <h4>Step 1: 追踪内存趋势</h4>
+                <pre><code>SELECT 
+    counter.ts,
+    counter.value / 1024 / 1024 as rss_mb
+FROM counter
+JOIN counter_track ON counter.track_id = counter_track.id
+WHERE counter_track.name = 'mem.rss'
+  AND counter_track.upid = (SELECT upid FROM process WHERE name = 'com.example.app')
+ORDER BY counter.ts;</code></pre>
+
+                <h4>Step 2: 识别大对象</h4>
+                <pre><code>SELECT 
+    heap_graph_object.id,
+    heap_graph_object.size_bytes
+FROM heap_graph_object
+WHERE heap_graph_object.type_name = 'android.graphics.Bitmap'
+  AND heap_graph_object.size_bytes > 1000000
+ORDER BY heap_graph_object.size_bytes DESC;</code></pre>
+            </div>
+        </section>
+
+        <section id="best-practices">
+            <h2>8. 最佳实践与约束</h2>
+
+            <h3>SQL编写最佳实践</h3>
+
+            <h4>1. 幂等性保证</h4>
+            <div class="comparison-grid">
+                <div class="comparison-item correct" data-label="✅ 正确">
+                    <pre><code>CREATE OR REPLACE PERFETTO TABLE my_table AS
+SELECT * FROM slice;</code></pre>
+                </div>
+                <div class="comparison-item incorrect" data-label="❌ 错误">
+                    <pre><code>CREATE TABLE my_table AS
+SELECT * FROM slice;</code></pre>
+                </div>
+            </div>
+
+            <h4>2. 字符串匹配</h4>
+            <div class="comparison-grid">
+                <div class="comparison-item correct" data-label="✅ 正确：使用 GLOB">
+                    <pre><code>WHERE slice.name GLOB '*RenderThread*'</code></pre>
+                </div>
+                <div class="comparison-item incorrect" data-label="❌ 错误：使用 LIKE">
+                    <pre><code>WHERE slice.name LIKE '%RenderThread%'</code></pre>
+                </div>
+            </div>
+
+            <h4>3. 处理不完整切片</h4>
+            <div class="comparison-grid">
+                <div class="comparison-item correct" data-label="✅ 正确">
+                    <pre><code>SELECT SUM(IIF(slice.dur = -1, 
+        trace_end() - slice.ts, 
+        slice.dur)) / 1000000.0
+FROM slice;</code></pre>
+                </div>
+                <div class="comparison-item incorrect" data-label="❌ 错误">
+                    <pre><code>SELECT SUM(slice.dur) / 1000000.0
+FROM slice;</code></pre>
+                </div>
+            </div>
+
+            <h4>4. 列名别名</h4>
+            <div class="comparison-grid">
+                <div class="comparison-item correct" data-label="✅ 正确">
+                    <pre><code>SELECT slice.name, slice.dur, thread.name
+FROM slice
+JOIN thread ON slice.utid = thread.utid;</code></pre>
+                </div>
+                <div class="comparison-item incorrect" data-label="❌ 错误">
+                    <pre><code>SELECT name, dur, name
+FROM slice
+JOIN thread ON slice.utid = thread.utid;</code></pre>
+                </div>
+            </div>
+
+            <h3>性能约束</h3>
+            <table>
+                <thead>
+                    <tr><th>约束</th><th>原因</th><th>解决方案</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>不使用 <code>LIKE</code></td><td>性能瓶颈 + 通配符bug</td><td>使用 <code>GLOB</code></td></tr>
+                    <tr><td>不搜索整个工作区</td><td>超时风险</td><td>直接检查已知路径</td></tr>
+                    <tr><td>不跨turn共享状态</td><td>数据库状态不持久</td><td>每个查询自包含</td></tr>
+                    <tr><td>不手动计算时间重叠</td><td>复杂且易错</td><td>使用标准库模块</td></tr>
+                </tbody>
+            </table>
+
+            <h3>快速参考卡</h3>
+
+            <h4>常用模块导入</h4>
+            <pre><code>INCLUDE PERFETTO MODULE android.startup.startups;     -- 应用启动
+INCLUDE PERFETTO MODULE android.frames;               -- 帧分析
+INCLUDE PERFETTO MODULE linux.cpu.frequency;          -- CPU频率
+INCLUDE PERFETTO MODULE sched.runnable;               -- 调度分析
+INCLUDE PERFETTO MODULE intervals.overlap;            -- 区间重叠</code></pre>
+
+            <h4>时间转换</h4>
+            <table>
+                <thead>
+                    <tr><th>转换</th><th>公式</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>ns → ms</td><td><code>value / 1000000.0</code></td></tr>
+                    <tr><td>ns → us</td><td><code>value / 1000.0</code></td></tr>
+                    <tr><td>ms → ns</td><td><code>value * 1000000</code></td></tr>
+                </tbody>
+            </table>
+
+            <h4>状态码</h4>
+            <table>
+                <thead>
+                    <tr><th>状态</th><th>含义</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>R</code></td><td>Runnable（可运行）</td></tr>
+                    <tr><td><code>S</code></td><td>Sleeping（睡眠）</td></tr>
+                    <tr><td><code>D</code></td><td>Uninterruptible Sleep（不可中断睡眠）</td></tr>
+                    <tr><td><code>T</code></td><td>Suspended（暂停）</td></tr>
+                    <tr><td><code>X</code></td><td>Exiting（退出中）</td></tr>
+                    <tr><td><code>Z</code></td><td>Zombie（僵尸进程）</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <footer>
+        <p>本文档详细描述了 Android Skills 性能分析器模块的使用方法</p>
+        <p>© 2026 Google LLC | Android Skills Repository</p>
+    </footer>
+</body>
+</html>
