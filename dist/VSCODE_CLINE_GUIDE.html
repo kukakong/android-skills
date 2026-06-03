@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VS Code + Cline 使用 Perfetto Skills 指南</title>
+    <style>
+        :root {
+            --primary-color: #3DDC84;
+            --secondary-color: #073042;
+            --accent-color: #4285F4;
+            --warning-color: #FF9800;
+            --error-color: #F44336;
+            --success-color: #4CAF50;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --code-background: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a237e, #283593);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .meta-info span {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        nav {
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        nav h2 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        nav ul {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        nav a {
+            color: var(--accent-color);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            transition: all 0.3s;
+            display: block;
+        }
+
+        nav a:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        section {
+            background: var(--card-background);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        h3 {
+            color: var(--accent-color);
+            margin: 25px 0 15px 0;
+        }
+
+        h4 {
+            color: var(--secondary-color);
+            margin: 20px 0 10px 0;
+            font-size: 1.1em;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        tr:hover {
+            background: #f0f0f0;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+
+        pre {
+            background: var(--code-background);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .tip-box {
+            background: #e8f5e9;
+            border-left: 4px solid var(--success-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .tip-box::before {
+            content: "💡 ";
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .warning-box::before {
+            content: "⚠️ ";
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid var(--accent-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info-box::before {
+            content: "ℹ️ ";
+        }
+
+        .architecture-box {
+            background: var(--secondary-color);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: monospace;
+            white-space: pre;
+            line-height: 1.4;
+            margin: 20px 0;
+        }
+
+        .step-card {
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            margin: 20px 0;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .step-card h4 {
+            color: var(--accent-color);
+            margin-bottom: 15px;
+        }
+
+        .example-box {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px dashed #999;
+        }
+
+        .example-box::before {
+            content: "📝 示例对话";
+            display: block;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--secondary-color);
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+
+        .workflow-box {
+            background: linear-gradient(135deg, #e8f5e9, #ffffff);
+            padding: 25px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid var(--success-color);
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.6em;
+            }
+            
+            section {
+                padding: 20px;
+            }
+            
+            pre {
+                padding: 15px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🛠️ VS Code + Cline 使用 Perfetto Skills 指南</h1>
+        <div class="meta-info">
+            <span>📁 VS Code 扩展</span>
+            <span>🤖 Cline AI Agent</span>
+            <span>🔍 Perfetto Skills</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <nav>
+            <h2>📑 目录</h2>
+            <ul>
+                <li><a href="#architecture">1. 架构说明</a></li>
+                <li><a href="#step1">2. 安装必要工具</a></li>
+                <li><a href="#step2">3. 配置 Skills 目录</a></li>
+                <li><a href="#step3">4. 配置 Cline</a></li>
+                <li><a href="#step4">5. 使用示例</a></li>
+                <li><a href="#step5">6. 常用 Prompt 模板</a></li>
+                <li><a href="#advanced">7. 高级配置</a></li>
+                <li><a href="#workflow">8. 完整工作流程</a></li>
+                <li><a href="#tips">9. 实用技巧</a></li>
+            </ul>
+        </nav>
+
+        <section id="architecture">
+            <h2>1. 架构说明</h2>
+
+            <div class="architecture-box">┌─────────────────────────────────────────────────────────────────┐
+│                    VS Code + Cline 架构                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    VS Code                               │   │
+│  │  ┌─────────────────────────────────────────────────┐    │   │
+│  │  │              Cline Extension                      │    │   │
+│  │  │  ─────────────────────────────────────────────── │    │   │
+│  │  │  • AI 对话界面                                    │    │   │
+│  │  │  • 工具调用能力                                   │    │   │
+│  │  │  • 文件读写权限                                   │    │   │
+│  │  │  • 终端命令执行                                   │    │   │
+│  │  └─────────────────────────────────────────────────┘    │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Android Skills (SKILL.md)                   │   │
+│  │  ─────────────────────────────────────────────────────── │   │
+│  │  • perfetto-sql - SQL 查询生成                           │   │
+│  │  • perfetto-trace-analysis - 根因分析                    │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                 trace_processor                          │   │
+│  │  (执行 SQL 查询，分析 trace 文件)                         │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘</div>
+        </section>
+
+        <section id="step1">
+            <h2>2. 步骤 1：安装必要工具</h2>
+
+            <div class="step-card">
+                <h4>2.1 安装 VS Code 和 Cline</h4>
+                <p>在 VS Code 扩展市场搜索 <strong>"Cline"</strong> 并安装。</p>
+            </div>
+
+            <div class="step-card">
+                <h4>2.2 下载 trace_processor</h4>
+                <pre><code># 在项目根目录执行
+cd /path/to/your/android/project
+
+# 下载 trace_processor
+curl -LO https://get.perfetto.dev/trace_processor
+chmod +x trace_processor
+
+# 添加到 .gitignore
+echo "trace_processor" >> .gitignore</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>2.3 验证安装</h4>
+                <pre><code># 测试 trace_processor 是否可用
+./trace_processor --help</code></pre>
+            </div>
+        </section>
+
+        <section id="step2">
+            <h2>3. 步骤 2：配置 Skills 目录</h2>
+
+            <div class="step-card">
+                <h4>3.1 创建 Skills 目录结构</h4>
+                <pre><code># 在项目根目录创建 .cline/skills 目录
+mkdir -p .cline/skills
+
+# 或者使用用户级目录（推荐）
+mkdir -p ~/.cline/skills</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>3.2 复制 Skills 文件</h4>
+                <p><strong>方式 A：从 Android Skills 仓库复制</strong></p>
+                <pre><code># 克隆 Android Skills 仓库
+git clone https://github.com/android/vertical-skills.git
+
+# 复制 perfetto 相关技能
+cp -r vertical-skills/profilers/perfetto-sql ~/.cline/skills/
+cp -r vertical-skills/profilers/perfetto-trace-analysis ~/.cline/skills/</code></pre>
+
+                <p><strong>方式 B：手动创建 Skill 文件</strong></p>
+                <p>创建 <code>~/.cline/skills/perfetto-sql/SKILL.md</code>：</p>
+                <pre><code>---
+name: perfetto-sql
+description: 将自然语言转换为 Perfetto SQL 查询并执行
+---
+
+## 使用方法
+
+当用户提供 trace 文件并提问时：
+1. 理解用户的分析意图
+2. 查找相关的表和模块
+3. 生成 SQL 查询
+4. 使用 trace_processor 执行查询
+5. 解释结果
+
+## 执行命令
+
+./trace_processor --query-string "SQL_QUERY" trace_file.perfetto-trace
+
+## 常用表
+
+- slice - 切片数据
+- thread_state - 线程状态
+- sched_slice - 调度切片
+- counter - 计数器数据
+
+## 注意事项
+
+- 使用 GLOB 而非 LIKE
+- 处理 dur = -1 的情况
+- 使用 utid/upid 而非 tid/pid</code></pre>
+            </div>
+        </section>
+
+        <section id="step3">
+            <h2>4. 步骤 3：配置 Cline</h2>
+
+            <div class="step-card">
+                <h4>3.1 在 VS Code 中打开设置</h4>
+                <pre><code>Ctrl/Cmd + Shift + P → "Cline: Open Settings"</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>3.2 配置 Skills 路径</h4>
+                <p>在 Cline 设置中添加 skills 目录：</p>
+                <pre><code>{
+  "cline.skills.directories": [
+    "~/.cline/skills",
+    "./.cline/skills"
+  ]
+}</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>3.3 配置工具权限</h4>
+                <p>确保 Cline 有以下权限：</p>
+                <ul>
+                    <li>✅ 读取文件</li>
+                    <li>✅ 写入文件</li>
+                    <li>✅ 执行终端命令</li>
+                    <li>✅ 访问工作目录</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="step4">
+            <h2>5. 步骤 4：使用示例</h2>
+
+            <div class="step-card">
+                <h4>示例 1：分析应用启动慢</h4>
+
+                <p><strong>准备 trace 文件</strong>：</p>
+                <pre><code># 在 Android 设备上采集 trace
+adb shell perfetto \
+  -c /data/misc/perfetto-traces/config.pbtx \
+  -o /data/misc/perfetto-traces/startup.perfetto-trace
+
+# 拉取到本地
+adb pull /data/misc/perfetto-traces/startup.perfetto-trace ./</code></pre>
+
+                <div class="example-box">
+                    <p><strong>用户</strong>: 我有一个 trace 文件 startup.perfetto-trace，请帮我分析应用启动为什么这么慢</p>
+                    <hr style="margin: 10px 0; border: none; border-top: 1px dashed #999;">
+                    <p><strong>Cline</strong>: 我来帮你分析应用启动性能。首先，让我查找启动事件...</p>
+                    <pre><code>[执行 SQL 查询]
+INCLUDE PERFETTO MODULE android.startup.startups;
+SELECT * FROM android_startups;</code></pre>
+                    <p>[分析结果]</p>
+                    <p>发现启动耗时 2.3 秒，主要耗时在：</p>
+                    <ol>
+                        <li>Application.onCreate: 800ms</li>
+                        <li>Activity.onCreate: 600ms</li>
+                        <li>资源加载: 500ms</li>
+                    </ol>
+                    <p>建议优化：</p>
+                    <ul>
+                        <li>延迟初始化非关键组件</li>
+                        <li>使用异步加载资源</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <h4>示例 2：分析 UI 卡顿</h4>
+
+                <div class="example-box">
+                    <p><strong>用户</strong>: 分析 trace.perfetto-trace 中的 UI 卡顿问题，找出掉帧原因</p>
+                    <hr style="margin: 10px 0; border: none; border-top: 1px dashed #999;">
+                    <p><strong>Cline</strong>: 我来分析 UI 卡顿问题...</p>
+                    <pre><code>[执行 SQL 查询]
+INCLUDE PERFETTO MODULE android.frames;
+SELECT frame.ts, frame.dur / 1000000.0 as dur_ms
+FROM actual_frame_timeline_frame as frame
+WHERE frame.dur > 16666666
+ORDER BY frame.dur DESC;</code></pre>
+                    <p>[分析结果]</p>
+                    <p>发现 15 次严重卡顿（>16ms），主要原因：</p>
+                    <ol>
+                        <li>ConstraintLayout.onMeasure 耗时过长</li>
+                        <li>RecyclerView 频繁重新绑定</li>
+                        <li>主线程有 I/O 操作</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <h4>示例 3：分析内存问题</h4>
+
+                <div class="example-box">
+                    <p><strong>用户</strong>: 我的 trace.perfetto-trace 显示内存持续增长，帮我找出内存泄漏</p>
+                    <hr style="margin: 10px 0; border: none; border-top: 1px dashed #999;">
+                    <p><strong>Cline</strong>: 我来分析内存问题...</p>
+                    <pre><code>[执行 SQL 查询]
+SELECT counter.ts, counter.value / 1024 / 1024 as rss_mb
+FROM counter
+JOIN counter_track ON counter.track_id = counter_track.id
+WHERE counter_track.name = 'mem.rss'
+ORDER BY counter.ts;</code></pre>
+                    <p>[分析结果]</p>
+                    <p>内存从 50MB 增长到 200MB，发现：</p>
+                    <ol>
+                        <li>Bitmap 对象持续增加</li>
+                        <li>Activity 实例未释放</li>
+                        <li>Handler 消息堆积</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <section id="step5">
+            <h2>6. 常用 Prompt 模板</h2>
+
+            <div class="step-card">
+                <h4>6.1 启动分析模板</h4>
+                <pre><code>请分析 trace 文件 [文件路径] 中的应用启动性能：
+1. 找出启动耗时
+2. 分析主线程活动
+3. 识别阻塞点
+4. 给出优化建议</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>6.2 卡顿分析模板</h4>
+                <pre><code>请分析 trace 文件 [文件路径] 中的 UI 卡顿：
+1. 找出所有超过 16ms 的帧
+2. 分析每帧的耗时分布
+3. 识别卡顿原因
+4. 给出优化建议</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>6.3 内存分析模板</h4>
+                <pre><code>请分析 trace 文件 [文件路径] 中的内存问题：
+1. 追踪内存变化趋势
+2. 识别大对象
+3. 查找可能的泄漏点
+4. 给出优化建议</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>6.4 CPU 分析模板</h4>
+                <pre><code>请分析 trace 文件 [文件路径] 中的 CPU 使用：
+1. 找出 CPU 占用高的线程
+2. 分析调度延迟
+3. 识别热点函数
+4. 给出优化建议</code></pre>
+            </div>
+        </section>
+
+        <section id="advanced">
+            <h2>7. 高级配置</h2>
+
+            <div class="step-card">
+                <h4>7.1 自定义 Skill 增强</h4>
+                <p>创建 <code>.cline/skills/perfetto-helper/SKILL.md</code>：</p>
+                <pre><code>---
+name: perfetto-helper
+description: Perfetto 分析辅助工具
+---
+
+## 快速分析命令
+
+### 启动分析
+./trace_processor --query-string "
+INCLUDE PERFETTO MODULE android.startup.startups;
+SELECT package, ts, dur/1000000.0 as dur_ms
+FROM android_startups;
+" $TRACE_FILE
+
+### 帧分析
+./trace_processor --query-string "
+INCLUDE PERFETTO MODULE android.frames;
+SELECT ts, dur/1000000.0 as dur_ms
+FROM actual_frame_timeline_frame
+WHERE dur > 16666666;
+" $TRACE_FILE
+
+### 内存分析
+./trace_processor --query-string "
+SELECT ts, value/1024/1024 as mb
+FROM counter
+JOIN counter_track ON counter.track_id = counter_track.id
+WHERE counter_track.name = 'mem.rss';
+" $TRACE_FILE</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>7.2 配置自动补全</h4>
+                <p>在 <code>.vscode/settings.json</code> 中：</p>
+                <pre><code>{
+  "cline.customCommands": [
+    {
+      "name": "分析启动",
+      "prompt": "分析 trace 文件 ${file} 的启动性能"
+    },
+    {
+      "name": "分析卡顿",
+      "prompt": "分析 trace 文件 ${file} 的 UI 卡顿"
+    },
+    {
+      "name": "分析内存",
+      "prompt": "分析 trace 文件 ${file} 的内存使用"
+    }
+  ]
+}</code></pre>
+            </div>
+        </section>
+
+        <section id="workflow">
+            <h2>8. 完整工作流程</h2>
+
+            <div class="workflow-box">
+                <h4>工作流程图</h4>
+                <div class="architecture-box">┌─────────────────────────────────────────────────────────────────┐
+│                    VS Code + Cline 工作流程                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. 准备阶段                                                     │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ • 安装 trace_processor                                   │   │
+│  │ • 配置 skills 目录                                        │   │
+│  │ • 准备 trace 文件                                         │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│  2. 采集 Trace                                                   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ $ adb shell perfetto -c config.pbtx -o trace.perfetto    │   │
+│  │ $ adb pull /data/misc/perfetto-traces/trace.perfetto .   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│  3. 在 Cline 中分析                                              │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ 用户: 分析 trace.perfetto 的启动性能                      │   │
+│  │                                                           │   │
+│  │ Cline:                                                    │   │
+│  │   → 读取 SKILL.md 获取指导                                │   │
+│  │   → 生成 SQL 查询                                         │   │
+│  │   → 执行 ./trace_processor --query-string "..."          │   │
+│  │   → 分析结果                                              │   │
+│  │   → 给出优化建议                                          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│  4. 验证优化                                                     │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ • 应用代码修改                                            │   │
+│  │ • 重新采集 trace                                          │   │
+│  │ • 对比分析结果                                            │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘</div>
+            </div>
+        </section>
+
+        <section id="tips">
+            <h2>9. 实用技巧</h2>
+
+            <div class="step-card">
+                <h4>技巧 1：使用相对路径</h4>
+                <pre><code># 将 trace_processor 放在项目根目录
+# Cline 可以直接使用相对路径
+./trace_processor --query-string "..." trace.perfetto-trace</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>技巧 2：保存常用查询</h4>
+                <p>创建 <code>queries/</code> 目录保存常用 SQL：</p>
+                <pre><code>queries/
+├── startup.sql      # 启动分析
+├── jank.sql         # 卡顿分析
+├── memory.sql       # 内存分析
+└── cpu.sql          # CPU 分析</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>技巧 3：批量分析</h4>
+                <pre><code># 分析多个 trace 文件
+for trace in traces/*.perfetto-trace; do
+  ./trace_processor --query-string "$(cat queries/startup.sql)" "$trace"
+done</code></pre>
+            </div>
+
+            <div class="step-card">
+                <h4>技巧 4：结果导出</h4>
+                <pre><code># 导出为 CSV
+./trace_processor --query-string "..." trace.perfetto-trace > result.csv
+
+# 在 Cline 中分析 CSV
+用户: 分析 result.csv 中的性能数据</code></pre>
+            </div>
+
+            <div class="warning-box">
+                <strong>注意事项</strong>
+                <ul>
+                    <li><strong>trace_processor 位置</strong>：确保在项目根目录或 PATH 中</li>
+                    <li><strong>文件权限</strong>：确保 Cline 有读写和执行权限</li>
+                    <li><strong>trace 文件大小</strong>：大文件可能需要较长时间加载</li>
+                    <li><strong>查询复杂度</strong>：复杂查询可能消耗较多内存</li>
+                    <li><strong>Skills 更新</strong>：定期更新 Android Skills 仓库获取最新功能</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>VS Code + Cline 使用 Perfetto Skills 指南</p>
+        <p>© 2026 Google LLC | Android Skills Repository</p>
+    </footer>
+</body>
+</html>

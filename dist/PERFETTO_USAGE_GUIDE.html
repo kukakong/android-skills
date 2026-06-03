@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfetto 性能分析工具使用指南</title>
+    <style>
+        :root {
+            --primary-color: #3DDC84;
+            --secondary-color: #073042;
+            --accent-color: #4285F4;
+            --warning-color: #FF9800;
+            --error-color: #F44336;
+            --success-color: #4CAF50;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --code-background: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--secondary-color), #1a237e);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .meta-info span {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        nav {
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        nav h2 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        nav ul {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 8px;
+        }
+
+        nav a {
+            color: var(--accent-color);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            transition: all 0.3s;
+            display: block;
+        }
+
+        nav a:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        section {
+            background: var(--card-background);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        h3 {
+            color: var(--accent-color);
+            margin: 25px 0 15px 0;
+        }
+
+        h4 {
+            color: var(--secondary-color);
+            margin: 20px 0 10px 0;
+            font-size: 1.1em;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        tr:hover {
+            background: #f0f0f0;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+
+        pre {
+            background: var(--code-background);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .tip-box {
+            background: #e8f5e9;
+            border-left: 4px solid var(--success-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .tip-box::before {
+            content: "💡 ";
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .warning-box::before {
+            content: "⚠️ ";
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid var(--accent-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info-box::before {
+            content: "ℹ️ ";
+        }
+
+        .architecture-box {
+            background: var(--secondary-color);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: monospace;
+            white-space: pre;
+            line-height: 1.4;
+            margin: 20px 0;
+        }
+
+        .scenario-card {
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            margin: 20px 0;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .scenario-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .scenario-card h4 {
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+
+        .status-yes {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .status-no {
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.6em;
+            }
+            
+            section {
+                padding: 20px;
+            }
+            
+            pre {
+                padding: 15px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔍 Perfetto 性能分析工具使用指南</h1>
+        <div class="meta-info">
+            <span>📱 Android 平台官方工具</span>
+            <span>🛠️ trace_processor + Skills</span>
+            <span>📅 2026-06-01</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <nav>
+            <h2>📑 目录</h2>
+            <ul>
+                <li><a href="#positioning">1. Perfetto 在 Android 中的定位</a></li>
+                <li><a href="#usage">2. 如何使用 Perfetto</a></li>
+                <li><a href="#scenarios">3. 实际应用场景</a></li>
+                <li><a href="#best-practices">4. 最佳实践</a></li>
+                <li><a href="#resources">5. 相关资源</a></li>
+            </ul>
+        </nav>
+
+        <section id="positioning">
+            <h2>1. Perfetto 在 Android 平台中的定位</h2>
+
+            <div class="tip-box">
+                <strong>是的，Perfetto 是 Android 平台的官方性能分析工具</strong>，从 Android 9 (Pie) 开始内置。
+            </div>
+
+            <h3>工具链架构</h3>
+            <div class="architecture-box">┌─────────────────────────────────────────────────────────────────┐
+│                    Android 性能分析工具链                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Android Studio Profiler                      │   │
+│  │  (GUI工具，开发者直接使用)                                  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    Perfetto                               │   │
+│  │  (底层引擎，Android 9+ 内置)                               │   │
+│  │  ─────────────────────────────────────────────────────── │   │
+│  │  • trace_processor - SQL查询引擎                          │   │
+│  │  • traced - 数据采集守护进程                               │   │
+│  │  • traced_perfetto - 性能数据采集                          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Android Skills                               │   │
+│  │  (AI辅助层，帮助LLM使用Perfetto)                           │   │
+│  │  ─────────────────────────────────────────────────────── │   │
+│  │  • perfetto-sql - SQL查询生成                             │   │
+│  │  • perfetto-trace-analysis - 根因分析                     │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘</div>
+
+            <h3>组件状态</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>组件</th>
+                        <th>状态</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Perfetto 引擎</strong></td>
+                        <td><span class="status-yes">✅ Android 9+ 内置</span></td>
+                        <td>系统级性能数据采集</td>
+                    </tr>
+                    <tr>
+                        <td><strong>trace_processor</strong></td>
+                        <td><span class="status-no">⚠️ 需单独下载</span></td>
+                        <td>SQL查询分析工具</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Android Skills</strong></td>
+                        <td><span class="status-no">⚠️ 需安装</span></td>
+                        <td>AI辅助使用Perfetto</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="usage">
+            <h2>2. 如何使用 Perfetto</h2>
+
+            <h3>方式一：直接使用 Perfetto（开发者常用）</h3>
+
+            <h4>Step 1: 采集性能数据</h4>
+            <pre><code># 在 Android 设备上采集 trace
+adb shell perfetto \
+  -c /data/misc/perfetto-traces/config.pbtx \
+  -o /data/misc/perfetto-traces/trace.perfetto-trace
+
+# 或使用 atrace（更简单）
+adb shell atrace -b 32768 gfx view input sched freq -t 5 > trace.txt</code></pre>
+
+            <h4>Step 2: 拉取 trace 文件</h4>
+            <pre><code>adb pull /data/misc/perfetto-traces/trace.perfetto-trace</code></pre>
+
+            <h4>Step 3: 分析 trace</h4>
+
+            <div class="info-box">
+                <strong>选项 A: 使用 Perfetto UI（可视化）</strong>
+                <ol>
+                    <li>打开 <a href="https://ui.perfetto.dev/">https://ui.perfetto.dev/</a></li>
+                    <li>拖拽 trace 文件到浏览器</li>
+                    <li>使用图形界面分析</li>
+                </ol>
+            </div>
+
+            <div class="info-box">
+                <strong>选项 B: 使用 trace_processor（命令行）</strong>
+                <pre><code># 下载 trace_processor
+curl -LO https://get.perfetto.dev/trace_processor
+chmod +x trace_processor
+
+# 执行 SQL 查询
+./trace_processor --query-string "SELECT * FROM slice LIMIT 10" trace.perfetto-trace</code></pre>
+            </div>
+
+            <h3>方式二：使用 Android Skills（AI辅助）</h3>
+
+            <h4>Step 1: 安装 Android CLI</h4>
+            <pre><code># Linux
+curl -fsSL https://dl.google.com/android/cli/latest/linux_x86_64/install.sh | bash
+
+# Mac ARM
+curl -fsSL https://dl.google.com/android/cli/latest/darwin_arm64/install.sh | bash
+
+# Windows
+curl -fsSL https://dl.google.com/android/cli/latest/windows_x86_64/install.cmd -o "%TEMP%\i.cmd" && "%TEMP%\i.cmd"</code></pre>
+
+            <h4>Step 2: 安装性能分析技能</h4>
+            <pre><code>android skills add --skill=perfetto-sql --project=.
+android skills add --skill=perfetto-trace-analysis --project=.</code></pre>
+
+            <h4>Step 3: 在 AI Agent 中使用</h4>
+            <p>当你有 trace 文件并询问 AI 问题时，AI 会：</p>
+            <ol>
+                <li>理解你的自然语言问题</li>
+                <li>生成正确的 Perfetto SQL 查询</li>
+                <li>执行查询并分析结果</li>
+                <li>给出根因分析和建议</li>
+            </ol>
+        </section>
+
+        <section id="scenarios">
+            <h2>3. 实际应用场景</h2>
+
+            <div class="scenario-card">
+                <h4>📱 场景 1：应用启动慢</h4>
+                <p><strong>问题现象</strong>：用户反馈应用启动需要 3-5 秒</p>
+
+                <h4>SQL 查询</h4>
+                <pre><code>-- 1. 找到启动事件
+INCLUDE PERFETTO MODULE android.startup.startups;
+SELECT * FROM android_startups WHERE package = 'com.example.app';
+
+-- 2. 分析主线程在启动期间做了什么
+SELECT slice.name, slice.dur / 1000000.0 as dur_ms
+FROM slice
+JOIN thread_track ON slice.track_id = thread_track.id
+JOIN thread ON thread_track.utid = thread.utid
+WHERE thread.name = 'main'
+  AND slice.ts BETWEEN {startup_ts} AND {startup_end}
+ORDER BY slice.dur DESC
+LIMIT 20;</code></pre>
+
+                <h4>典型发现与优化</h4>
+                <table>
+                    <thead>
+                        <tr><th>发现</th><th>优化建议</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>ResourcesManager.getResources</code> 耗时过长</td><td>资源加载优化</td></tr>
+                        <tr><td><code>Application.onCreate</code> 阻塞</td><td>延迟初始化</td></tr>
+                        <tr><td><code>bindApplication</code> 等待</td><td>检查 ContentProvider</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="scenario-card">
+                <h4>🎨 场景 2：UI 卡顿 / 掉帧</h4>
+                <p><strong>问题现象</strong>：列表滚动不流畅，帧率低于 60fps</p>
+
+                <h4>SQL 查询</h4>
+                <pre><code>-- 找出超过 16ms 的帧
+INCLUDE PERFETTO MODULE android.frames;
+
+SELECT 
+    frame.ts,
+    frame.dur / 1000000.0 as frame_dur_ms,
+    frame.dur - 16666666 as overshoot_ns
+FROM actual_frame_timeline_frame as frame
+WHERE frame.dur > 16666666  -- > 16.6ms
+ORDER BY frame.dur DESC
+LIMIT 50;</code></pre>
+
+                <h4>典型发现与优化</h4>
+                <table>
+                    <thead>
+                        <tr><th>发现</th><th>优化建议</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>Choreographer#doFrame</code> 中 <code>traversal</code> 耗时</td><td>布局优化</td></tr>
+                        <tr><td><code>measure</code> / <code>layout</code> 重复调用</td><td>避免过度绘制</td></tr>
+                        <tr><td><code>RenderThread</code> 等待</td><td>减少 GPU 工作量</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="scenario-card">
+                <h4>💾 场景 3：内存泄漏 / OOM</h4>
+                <p><strong>问题现象</strong>：应用运行一段时间后内存持续增长，最终 OOM</p>
+
+                <h4>SQL 查询</h4>
+                <pre><code>-- 追踪内存变化趋势
+SELECT 
+    counter.ts,
+    counter.value / 1024 / 1024 as rss_mb
+FROM counter
+JOIN counter_track ON counter.track_id = counter_track.id
+WHERE counter_track.name = 'mem.rss'
+ORDER BY counter.ts;
+
+-- 查找大对象
+SELECT 
+    heap_graph_object.type_name,
+    COUNT(*) as count,
+    SUM(heap_graph_object.size_bytes) / 1024 / 1024 as total_mb
+FROM heap_graph_object
+GROUP BY heap_graph_object.type_name
+ORDER BY total_mb DESC
+LIMIT 20;</code></pre>
+
+                <h4>典型发现与优化</h4>
+                <table>
+                    <thead>
+                        <tr><th>发现</th><th>优化建议</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>Bitmap</code> 未释放</td><td>检查图片缓存策略</td></tr>
+                        <tr><td><code>Activity</code> 泄漏</td><td>使用 LeakCanary 定位</td></tr>
+                        <tr><td><code>native</code> 内存增长</td><td>检查 NDK 使用</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="scenario-card">
+                <h4>⏱️ 场景 4：ANR（应用无响应）</h4>
+                <p><strong>问题现象</strong>：主线程阻塞超过 5 秒，触发 ANR</p>
+
+                <h4>SQL 查询</h4>
+                <pre><code>-- 找到 ANR 事件
+SELECT 
+    slice.name,
+    slice.ts,
+    slice.dur / 1000000.0 as dur_ms
+FROM slice
+WHERE slice.name GLOB '*anr*'
+ORDER BY slice.dur DESC;
+
+-- 分析主线程阻塞原因
+SELECT 
+    thread_state.state,
+    SUM(thread_state.dur) / 1000000.0 as dur_ms
+FROM thread_state
+WHERE thread_state.utid = (SELECT utid FROM thread WHERE name = 'main')
+  AND thread_state.ts BETWEEN {anr_ts} AND {anr_end}
+GROUP BY thread_state.state;</code></pre>
+
+                <h4>典型发现与优化</h4>
+                <table>
+                    <thead>
+                        <tr><th>状态</th><th>含义</th><th>优化建议</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>D</code></td><td>不可中断睡眠</td><td>I/O 阻塞，移到后台线程</td></tr>
+                        <tr><td><code>S</code></td><td>等待锁</td><td>检查锁竞争</td></tr>
+                        <tr><td>Binder</td><td>跨进程调用阻塞</td><td>优化 IPC</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="scenario-card">
+                <h4>🔋 场景 5：电量消耗快</h4>
+                <p><strong>问题现象</strong>：用户反馈应用耗电严重</p>
+
+                <h4>SQL 查询</h4>
+                <pre><code>-- 分析 CPU 使用
+SELECT 
+    process.name,
+    SUM(sched_slice.dur) / 1000000.0 as cpu_time_ms
+FROM sched_slice
+JOIN thread ON sched_slice.utid = thread.utid
+JOIN process ON thread.upid = process.upid
+WHERE process.name = 'com.example.app'
+GROUP BY process.name;
+
+-- 分析唤醒锁
+SELECT 
+    slice.name,
+    slice.dur / 1000000.0 as hold_time_ms
+FROM slice
+WHERE slice.name GLOB '*WakeLock*'
+ORDER BY slice.dur DESC;</code></pre>
+
+                <h4>典型发现与优化</h4>
+                <table>
+                    <thead>
+                        <tr><th>发现</th><th>优化建议</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>频繁唤醒</td><td>优化后台任务调度</td></tr>
+                        <tr><td>WakeLock 持有时间过长</td><td>及时释放</td></tr>
+                        <tr><td>GPS 持续开启</td><td>按需请求</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="scenario-card">
+                <h4>🌐 场景 6：网络请求慢</h4>
+                <p><strong>问题现象</strong>：API 请求耗时过长</p>
+
+                <h4>SQL 查询</h4>
+                <pre><code>-- 查找网络相关切片
+SELECT 
+    slice.name,
+    slice.ts,
+    slice.dur / 1000000.0 as dur_ms
+FROM slice
+WHERE slice.name GLOB '*http*' OR slice.name GLOB '*network*'
+ORDER BY slice.dur DESC
+LIMIT 20;</code></pre>
+            </div>
+
+            <h3>场景总结</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>场景类别</th>
+                        <th>具体问题</th>
+                        <th>关键表/模块</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>启动性能</strong></td>
+                        <td>冷启动慢、热启动慢</td>
+                        <td><code>android_startups</code>, <code>slice</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>UI性能</strong></td>
+                        <td>卡顿、掉帧、滚动不流畅</td>
+                        <td><code>actual_frame_timeline</code>, <code>slice</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>CPU性能</strong></td>
+                        <td>CPU占用高、调度延迟</td>
+                        <td><code>sched_slice</code>, <code>thread_state</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>内存性能</strong></td>
+                        <td>OOM、内存泄漏、GC频繁</td>
+                        <td><code>counter</code>, <code>heap_graph_object</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>图形性能</strong></td>
+                        <td>GPU占用高、渲染慢</td>
+                        <td><code>android_graphics_allocs</code>, <code>gpu_mem_total</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>I/O性能</strong></td>
+                        <td>文件读写慢、磁盘阻塞</td>
+                        <td><code>ftrace</code>, <code>block_io</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>电源性能</strong></td>
+                        <td>耗电快、发热</td>
+                        <td><code>power_rail</code>, <code>WakeLock</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="best-practices">
+            <h2>4. 最佳实践</h2>
+
+            <h3>4.1 采集时机</h3>
+            <pre><code># 问题发生时采集
+adb shell perfetto -c config.pbtx -o trace.perfetto-trace --txt
+
+# 后台持续采集（用于难以复现的问题）
+adb shell perfetto -c config.pbtx -o trace.perfetto-trace -d</code></pre>
+
+            <h3>4.2 配置优化</h3>
+            <pre><code># 只采集需要的数据，减少开销
+buffers: {
+    size_kb: 102400
+    fill_policy: RING_BUFFER
+}
+
+data_sources: {
+    config {
+        name: "android.sched"
+        target_buffer: 0
+    }
+}
+
+data_sources: {
+    config {
+        name: "android.gpu"
+        target_buffer: 0
+    }
+}</code></pre>
+
+            <h3>4.3 分析流程</h3>
+            <div class="architecture-box">1. 明确问题 → 确定分析目标
+2. 采集数据 → 选择合适的数据源
+3. 初步分析 → 使用标准查询模式
+4. 深入调查 → 根据发现调整查询
+5. 定位根因 → 结合代码理解
+6. 验证修复 → 对比修复前后 trace</div>
+        </section>
+
+        <section id="resources">
+            <h2>5. 相关资源</h2>
+
+            <ul>
+                <li><strong>Perfetto 官网</strong>: <a href="https://perfetto.dev/">https://perfetto.dev/</a></li>
+                <li><strong>Perfetto UI</strong>: <a href="https://ui.perfetto.dev/">https://ui.perfetto.dev/</a></li>
+                <li><strong>Android Profiler 文档</strong>: <a href="https://developer.android.com/studio/profile">https://developer.android.com/studio/profile</a></li>
+                <li><strong>Perfetto SQL 文档</strong>: <a href="https://perfetto.dev/docs/analysis/sql-docs">https://perfetto.dev/docs/analysis/sql-docs</a></li>
+            </ul>
+        </section>
+    </div>
+
+    <footer>
+        <p>Perfetto 性能分析工具使用指南</p>
+        <p>© 2026 Google LLC | Android Skills Repository</p>
+    </footer>
+</body>
+</html>
